@@ -99,6 +99,20 @@ def _set_default_megatron_args(args):
     if hasattr(args, "rope_type") and args.rope_type is None:
         args.rope_type = "yarn" if args.multi_latent_attention else "rope"
 
+    # YaRN context extension: when seq_length exceeds the model's original
+    # max_position_embeddings, automatically compute the scaling factor.
+    if hasattr(args, "original_max_position_embeddings") and args.original_max_position_embeddings is not None:
+        if args.seq_length > args.original_max_position_embeddings:
+            inferred_factor = args.seq_length / args.original_max_position_embeddings
+            if args.rotary_scaling_factor <= 1.0:
+                logger.info(
+                    f"YaRN: seq_length ({args.seq_length}) > original_max_position_embeddings "
+                    f"({args.original_max_position_embeddings}), auto-setting "
+                    f"rotary_scaling_factor to {inferred_factor}"
+                )
+                args.rotary_scaling_factor = inferred_factor
+            args.rope_type = "yarn"
+
     if args.vocab_size and not args.padded_vocab_size:
         args.padded_vocab_size = _vocab_size_with_padding(args.vocab_size, args)
 

@@ -1319,6 +1319,33 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
             )
             return parser
 
+        def add_yarn_arguments(parser):
+            """Add YaRN context extension arguments for MLA models."""
+            parser.add_argument(
+                "--original-max-position-embeddings",
+                type=int,
+                default=None,
+                help=(
+                    "Original max position embeddings of the pretrained model. "
+                    "When seq_length exceeds this value and the model uses MLA, "
+                    "YaRN RoPE scaling is automatically applied. "
+                    "The scaling factor is inferred as seq_length / original_max_position_embeddings."
+                ),
+            )
+            parser.add_argument(
+                "--beta-fast",
+                type=float,
+                default=32.0,
+                help="Beta fast for YaRN RoPE. Default: 32.0.",
+            )
+            parser.add_argument(
+                "--beta-slow",
+                type=float,
+                default=1.0,
+                help="Beta slow for YaRN RoPE. Default: 1.0.",
+            )
+            return parser
+
         def add_mtp_training_arguments(parser):
             """Add MTP training specific arguments."""
             reset_arg(parser, "--mtp-num-layers", type=int, default=None)
@@ -1375,6 +1402,7 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
         parser = add_mtp_training_arguments(parser)
         parser = add_ci_arguments(parser)
         parser = add_custom_megatron_plugins_arguments(parser)
+        parser = add_yarn_arguments(parser)
         reset_arg(
             parser,
             "--custom-config-path",
