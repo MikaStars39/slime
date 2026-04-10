@@ -834,11 +834,4 @@ def initialize_model_and_optimizer(
     )
     clear_memory()
 
-    # Capture initial weights for MuonProjected after checkpoint load
-    if getattr(args, 'optimizer', 'adam') == 'muon_projected':
-        for chained_opt in optimizer.chained_optimizers:
-            inner = getattr(chained_opt, 'optimizer', chained_opt)
-            if hasattr(inner, 'capture_initial_weights'):
-                inner.capture_initial_weights()
-
     return model, optimizer, opt_param_scheduler, iteration
