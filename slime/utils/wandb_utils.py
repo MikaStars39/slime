@@ -61,6 +61,8 @@ def init_wandb_primary(args):
     # Configure settings based on offline/online mode
     if offline:
         init_kwargs["settings"] = wandb.Settings(mode="offline")
+    elif args.wandb_mode and args.wandb_mode != "shared":
+        init_kwargs["settings"] = wandb.Settings(mode=args.wandb_mode)
     else:
         init_kwargs["settings"] = wandb.Settings(mode="shared", x_primary=True)
 
