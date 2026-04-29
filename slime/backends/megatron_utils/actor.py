@@ -568,6 +568,11 @@ class MegatronTrainRayActor(TrainRayActor):
             self.weight_updater.update_weights()
             print_memory("after update_weights")
 
+            if self.args.reset_optimizer_states:
+                from slime.backends.megatron_utils.model import reset_optimizer_states
+
+                reset_optimizer_states(self.optimizer)
+
             if self.args.ci_test and len(rollout_engines) > 0:
                 engine = random.choice(rollout_engines)
                 engine_version = ray.get(engine.get_weight_version.remote())

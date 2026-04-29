@@ -44,6 +44,16 @@ def validate_args(args):
         assert not args.use_distributed_optimizer, "MuonProjected does not support distributed optimizer."
         assert not getattr(args, 'fp16', False), "MuonProjected does not support fp16, use bf16 instead."
 
+    # GASD optimizer checks
+    if getattr(args, 'optimizer', 'adam') == 'gasd':
+        assert not args.use_distributed_optimizer, "GASD does not support distributed optimizer."
+        assert not getattr(args, 'fp16', False), "GASD does not support fp16, use bf16 instead."
+
+    # SOAP optimizer checks
+    if getattr(args, 'optimizer', 'adam') == 'soap':
+        assert not args.use_distributed_optimizer, "SOAP does not support distributed optimizer."
+        assert not getattr(args, 'fp16', False), "SOAP does not support fp16, use bf16 instead."
+
 
 def _hf_validate_args(args, hf_config):
     def equal(x, y):
@@ -95,7 +105,7 @@ def _hf_validate_args(args, hf_config):
 def _set_default_megatron_args(args):
     # Muon/Roo/SGD do not support distributed optimizer; for all other optimizers use ZeRO.
     opt = getattr(args, 'optimizer', 'adam')
-    if 'muon' in opt or opt in ('roo', 'sgd', 'muon_projected'):
+    if 'muon' in opt or opt in ('roo', 'sgd', 'muon_projected', 'gasd', 'soap', 'rmsprop'):
         args.use_distributed_optimizer = False
     else:
         args.use_distributed_optimizer = True

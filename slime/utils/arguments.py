@@ -899,8 +899,10 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 action="store_true",
                 default=False,
                 help=(
-                    "Whether to reset optimizer states after each rollout. "
-                    "If enabled, the optimizer's history will be cleared at the end of each rollout, which can sometimes help with training stability or fulfill specific experiment requirements."
+                    "Whether to reset optimizer states after each weight update to the inference engine. "
+                    "When enabled, the optimizer's step counter, first-moment (exp_avg), and second-moment "
+                    "(exp_avg_sq) estimates are zeroed after weights are pushed to inference engines, "
+                    "discarding stale momentum from the previous optimization landscape."
                 ),
             )
             parser.add_argument(
@@ -1273,26 +1275,6 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 type=int,
                 default=128,
                 help="Multiplier for data padding size in data processing.",
-            )
-            # YaRN RoPE parameters for long context extension (MLA models)
-            # These map to MLATransformerConfig fields via core_transformer_config_from_args.
-            parser.add_argument(
-                "--original-max-position-embeddings",
-                type=int,
-                default=None,
-                help="Original max position embeddings before YaRN scaling (e.g., 8192 for Moonlight).",
-            )
-            parser.add_argument(
-                "--beta-fast",
-                type=float,
-                default=None,
-                help="Beta fast for YaRN RoPE.",
-            )
-            parser.add_argument(
-                "--beta-slow",
-                type=float,
-                default=None,
-                help="Beta slow for YaRN RoPE.",
             )
             parser.add_argument(
                 "--rollout-sample-filter-path",
@@ -1729,8 +1711,11 @@ def slime_validate_args(args):
             "require advantage normalization. Please add `--normalize-advantages` to your command."
         )
 
-    if args.use_rollout_logprobs:
-        assert not args.use_tis, "use_rollout_logprobs and use_tis cannot be set at the same time."
+    if args.use_rollout_logprobs and args.use_tis:
+        assert args.custom_tis_function_path is not None, (
+            "use_rollout_logprobs and use_tis with the default TIS function cannot be used together. "
+            "Provide --custom-tis-function-path for GLM-5 style off-policy correction."
+        )
 
     if args.get_mismatch_metrics:
         assert (

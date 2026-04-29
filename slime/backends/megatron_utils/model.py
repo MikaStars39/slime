@@ -37,6 +37,20 @@ try:
     HAVE_MUON_PROJECTED = True
 except ImportError:
     HAVE_MUON_PROJECTED = False
+
+try:
+    from megatron.core.optimizer.gasd import get_megatron_gasd_optimizer
+
+    HAVE_GASD = True
+except ImportError:
+    HAVE_GASD = False
+
+try:
+    from megatron.core.optimizer.soap import get_megatron_soap_optimizer
+
+    HAVE_SOAP = True
+except ImportError:
+    HAVE_SOAP = False
 from megatron.core.optimizer_param_scheduler import OptimizerParamScheduler
 from megatron.core.pipeline_parallel import get_forward_backward_func
 from megatron.core.utils import get_model_config
@@ -136,8 +150,27 @@ def setup_model_and_optimizer(
     config = OptimizerConfig(**kwargs)
     config.timers = None
 
-    if 'muon' not in config.optimizer and config.optimizer not in ('roo', 'muon_projected'):
+    if 'muon' not in config.optimizer and config.optimizer not in ('roo', 'muon_projected', 'gasd', 'soap'):
         optimizer = get_megatron_optimizer(
+            config=config,
+            model_chunks=model,
+            use_gloo_process_groups=args.enable_gloo_process_groups,
+        )
+    elif config.optimizer == 'gasd':
+        assert HAVE_GASD, (
+            "GASD optimizer requires megatron.core.optimizer.gasd module."
+        )
+        optimizer = get_megatron_gasd_optimizer(
+            config=config,
+            model_chunks=model,
+            use_gloo_process_groups=args.enable_gloo_process_groups,
+        )
+    elif config.optimizer == 'soap':
+        assert HAVE_SOAP, (
+            "SOAP optimizer requires megatron.core.optimizer.soap module and "
+            "'emerging_optimizers' package."
+        )
+        optimizer = get_megatron_soap_optimizer(
             config=config,
             model_chunks=model,
             use_gloo_process_groups=args.enable_gloo_process_groups,
@@ -540,6 +573,34 @@ def should_disable_forward_pre_hook(args: Namespace) -> bool:
     return args.use_distributed_optimizer and args.overlap_param_gather
 
 
+def reset_optimizer_states(optimizer: MegatronOptimizer) -> None:
+    """Zero out Adam optimizer state (step, exp_avg, exp_avg_sq).
+
+    Called after weight updates to inference engines so that stale momentum
+    from the previous optimization landscape is discarded.
+    """
+    if (
+        mpu.get_data_parallel_rank(with_context_parallel=True) == 0
+        and mpu.get_tensor_model_parallel_rank() == 0
+        and mpu.get_pipeline_model_parallel_rank() == mpu.get_pipeline_model_parallel_world_size() - 1
+    ):
+        print("Reset optimizer states")
+    for chained_optimizer in optimizer.chained_optimizers:
+        for group in chained_optimizer.optimizer.param_groups:
+            if "step" in group:
+                group["step"] = 0
+        for state in chained_optimizer.optimizer.state.values():
+            if "step" in state:
+                if isinstance(state["step"], torch.Tensor):
+                    state["step"].zero_()
+                else:
+                    state["step"] = 0
+            if "exp_avg" in state:
+                state["exp_avg"].zero_()
+            if "exp_avg_sq" in state:
+                state["exp_avg_sq"].zero_()
+
+
 def train(
     rollout_id: int,
     model: Sequence[DDP],
@@ -593,28 +654,6 @@ def train(
     config.finalize_model_grads_func = finalize_model_grads
 
     pre_hook_enabled = False
-
-    if args.reset_optimizer_states:
-        if (
-            mpu.get_data_parallel_rank(with_context_parallel=True) == 0
-            and mpu.get_tensor_model_parallel_rank() == 0
-            and mpu.get_pipeline_model_parallel_rank() == mpu.get_pipeline_model_parallel_world_size() - 1
-        ):
-            print("Reset optimizer states")
-        for chained_optimizer in optimizer.chained_optimizers:
-            for group in chained_optimizer.optimizer.param_groups:
-                if "step" in group:
-                    group["step"] = 0
-            for state in chained_optimizer.optimizer.state.values():
-                if "step" in state:
-                    if isinstance(state["step"], torch.Tensor):
-                        state["step"].zero_()
-                    else:
-                        state["step"] = 0
-                if "exp_avg" in state:
-                    state["exp_avg"].zero_()
-                if "exp_avg_sq" in state:
-                    state["exp_avg_sq"].zero_()
 
     if args.manual_gc:
         # Disable the default garbage collector and perform the collection manually.
