@@ -51,6 +51,13 @@ try:
     HAVE_SOAP = True
 except ImportError:
     HAVE_SOAP = False
+
+try:
+    from megatron.core.optimizer.shampoo import get_megatron_shampoo_optimizer
+
+    HAVE_SHAMPOO = True
+except ImportError:
+    HAVE_SHAMPOO = False
 from megatron.core.optimizer_param_scheduler import OptimizerParamScheduler
 from megatron.core.pipeline_parallel import get_forward_backward_func
 from megatron.core.utils import get_model_config
@@ -150,7 +157,7 @@ def setup_model_and_optimizer(
     config = OptimizerConfig(**kwargs)
     config.timers = None
 
-    if 'muon' not in config.optimizer and config.optimizer not in ('roo', 'muon_projected', 'gasd', 'soap'):
+    if 'muon' not in config.optimizer and config.optimizer not in ('roo', 'muon_projected', 'gasd', 'soap', 'shampoo'):
         optimizer = get_megatron_optimizer(
             config=config,
             model_chunks=model,
@@ -171,6 +178,16 @@ def setup_model_and_optimizer(
             "'emerging_optimizers' package."
         )
         optimizer = get_megatron_soap_optimizer(
+            config=config,
+            model_chunks=model,
+            use_gloo_process_groups=args.enable_gloo_process_groups,
+        )
+    elif config.optimizer == 'shampoo':
+        assert HAVE_SHAMPOO, (
+            "Shampoo optimizer requires megatron.core.optimizer.shampoo module and "
+            "'emerging_optimizers' package."
+        )
+        optimizer = get_megatron_shampoo_optimizer(
             config=config,
             model_chunks=model,
             use_gloo_process_groups=args.enable_gloo_process_groups,
