@@ -1219,6 +1219,16 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                 ),
             )
             parser.add_argument(
+                "--code-rm-url",
+                type=str,
+                default=None,
+                help=(
+                    "HTTP endpoint of the Gym code_gen verify service "
+                    "(e.g. http://host:port/verify). Required when --custom-rm-path "
+                    "points to slime.rollout.rm_hub.code_execution.custom_rm."
+                ),
+            )
+            parser.add_argument(
                 "--custom-reward-post-process-path",
                 type=str,
                 default=None,
