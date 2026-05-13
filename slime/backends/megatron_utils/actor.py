@@ -513,8 +513,13 @@ class MegatronTrainRayActor(TrainRayActor):
         if self.args.debug_rollout_only:
             return
 
-        # torch dist may trigger nccl communication during saving.
-        if self.args.offload_train:
+        # save path needs GPU buffers for NCCL all_gather_object metadata and for
+        # reading optimizer/param state. If we are in offload (paused) state, the
+        # device's physical memory is munmapped and any cuda alloc / read will
+        # raise cudaErrorInvalidValue. Resume before save, pause again after.
+        was_paused = self.args.offload_train
+        if was_paused:
+            torch_memory_saver.resume()
             reload_process_groups()
 
         if self.args.async_save:
@@ -532,8 +537,9 @@ class MegatronTrainRayActor(TrainRayActor):
 
             save_hf_model(self.args, rollout_id, self.model)
 
-        if self.args.offload_train:
+        if was_paused:
             destroy_process_groups()
+            torch_memory_saver.pause()
 
     @timer
     def update_weights(self) -> None:
