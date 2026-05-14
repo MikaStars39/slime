@@ -35,10 +35,10 @@ def _get_shared_session() -> aiohttp.ClientSession:
 def _build_gym_payload(sample: Sample, unit_tests: dict, model_name: str) -> dict:
     """Construct a CompCodingVerifyRequest payload satisfying Gym's pydantic schema.
 
-    Only response.output_text and verifier_metadata are semantically used by Gym's
-    code_gen server (see Gym/resources_servers/code_gen/app.py:verify); other fields
-    are stubs sized to pass pydantic validation of NeMoGymResponse +
-    NeMoGymResponseCreateParamsNonStreaming.
+    Gym's code_gen verify reads `body.response.output_text`, which on the OpenAI
+    Response model is a derived property that aggregates `text` from output[]
+    items of type "output_text". So the model response must be embedded as an
+    output message, not passed as a top-level output_text field.
     """
     response_text = sample.response or ""
     if isinstance(sample.prompt, str):
@@ -51,6 +51,7 @@ def _build_gym_payload(sample: Sample, unit_tests: dict, model_name: str) -> dic
         prompt_text = ""
 
     rid = f"slime-{uuid.uuid4().hex}"
+    msg_id = f"msg-{uuid.uuid4().hex}"
     return {
         "responses_create_params": {
             "input": prompt_text,
@@ -62,8 +63,21 @@ def _build_gym_payload(sample: Sample, unit_tests: dict, model_name: str) -> dic
             "model": model_name,
             "object": "response",
             "status": "completed",
-            "output_text": response_text,
-            "output": [],
+            "output": [
+                {
+                    "id": msg_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": response_text,
+                            "annotations": [],
+                        }
+                    ],
+                }
+            ],
             "parallel_tool_calls": False,
             "tool_choice": "none",
             "tools": [],
