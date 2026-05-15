@@ -137,7 +137,9 @@ async def custom_rm(args, sample: Sample, max_retries: int = 5, **kwargs) -> flo
                 if reward is None:
                     logger.warning(f"Gym /verify returned no reward field: {data}")
                     return 0.0
-                return float(reward)
+                # Clamp to non-negative: even if Gym returns a penalty value
+                # (e.g. reasoning_format_penalty=-0.2), surface it as 0 to RL.
+                return max(0.0, float(reward))
         except Exception as e:
             if attempt + 1 >= max_retries:
                 logger.warning(f"code_rm failed after {attempt + 1} attempts: {e}")
