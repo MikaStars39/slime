@@ -11,6 +11,7 @@ Wire with:
 import asyncio
 import logging
 import random
+import re
 import time
 import uuid
 
@@ -21,6 +22,16 @@ from slime.utils.types import Sample
 logger = logging.getLogger(__name__)
 
 _shared_session: aiohttp.ClientSession | None = None
+
+# Qwen3-think and similar reasoning models emit <think>...</think> as part of their
+# natural output. Gym's verify treats any <think> tag in output_text as a reasoning
+# format violation and applies a penalty, which would punish correct answers.
+# Strip these blocks before sending so only the post-reasoning answer reaches Gym.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _strip_think_blocks(text: str) -> str:
+    return _THINK_BLOCK_RE.sub("", text).lstrip("\n")
 
 
 def _get_shared_session() -> aiohttp.ClientSession:
@@ -40,7 +51,7 @@ def _build_gym_payload(sample: Sample, unit_tests: dict, model_name: str) -> dic
     items of type "output_text". So the model response must be embedded as an
     output message, not passed as a top-level output_text field.
     """
-    response_text = sample.response or ""
+    response_text = _strip_think_blocks(sample.response or "")
     if isinstance(sample.prompt, str):
         prompt_text = sample.prompt
     elif isinstance(sample.prompt, list):
