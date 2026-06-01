@@ -39,7 +39,7 @@ docker run --rm --gpus all --ipc=host --shm-size=16g \
 
 ### Install slime
 
-slime is already installed in the docker image. To update to the latest verison, please execute the following command:
+slime is already installed in the docker image. To update to the latest version, please execute the following command:
 
 ```bash
 # Path can be adjusted according to actual situation
@@ -71,7 +71,7 @@ hf download --repo-type dataset zhuzilin/aime-2024 \
 
 When using Megatron as the training backend, you need to first convert Hugging Face format model weights to Megatron `torch_dist` format.
 
-First, load the configuration file of the target model. The `slime/scripts/models` directory contains configuration files for supported models. You need to `source` the corresponding model script to load the configuration parameters into the current environment. Here we use GLM4-9B model as an example, and it's similar for Qwen3-4B, GLM-4.7-Flash, Qwen3-30B-A3B, etc.
+First, load the configuration file of the target model. The `slime/scripts/models` directory contains configuration files for supported models. You need to `source` the corresponding model script to load the configuration parameters into the current environment. Here we use GLM4-9B model as an example, and it's similar for Qwen3-4B, Qwen3.5, Qwen3.6, GLM-4.7-Flash, Qwen3-30B-A3B, etc.
 
 ```bash
 cd /root/slime
@@ -408,6 +408,12 @@ And replace `--hf-checkpoint` with:
 
 This will trigger fp8 inference. Currently, we will directly cast bf16 weights to fp8, and we will gradually add quantization schemes with less impact on accuracy in the future.
 
+For long-context rollout, you can also enable FP8 KV cache in SGLang to increase effective KV cache capacity:
+
+```bash
+--sglang-kv-cache-dtype fp8_e4m3
+```
+
 ⚠️ The training megatron checkpoint still needs to be the one converted from bf16 huggingface at the beginning.
 
 ## Multiturn Adaptation
@@ -583,4 +589,4 @@ slime has been deeply optimized for distributed training of large-scale Mixture 
 - [Example: 8xH100 Training GLM-4.7-Flash](../examples/glm4.7-30B-A3B.md)
 - [Example: 64xH100 Training GLM-4.7](../examples/glm4.7-355B-A32B.md)
 - [Example: 128xH100 Training DeepSeek-R1](../examples/deepseek-r1.md)
-- The scripts such as `scripts/run_qwen3_30b_a3b.py`, `scripts/run_glm45_355b_a32b.py` also support multi-node training, though there are little documentations about it currently.
+- Scripts such as `scripts/run_qwen3_30b_a3b.py` and `scripts/run_glm45_355b_a32b.py` also support multi-node training. Their documentation is still being expanded.

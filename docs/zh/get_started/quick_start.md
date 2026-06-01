@@ -70,7 +70,7 @@ hf download --repo-type dataset zhuzilin/aime-2024 \
 
 当使用 Megatron 作为训练后端时，需要先将 Hugging Face 格式的模型权重转换为 Megatron `torch_dist` 格式。
 
-首先，加载目标模型的配置文件。`slime/scripts/models` 目录下包含了支持模型的配置文件。需要 `source` 对应模型的脚本，将配置参数加载到当前环境中。此处我们以 GLM4-9B 模型为例子，对于 Qwen3-4B，GLM-4.7-Flash，Qwen3-30B-A3B，是类似的。
+首先，加载目标模型的配置文件。`slime/scripts/models` 目录下包含了支持模型的配置文件。需要 `source` 对应模型的脚本，将配置参数加载到当前环境中。此处我们以 GLM4-9B 模型为例子，对于 Qwen3-4B、Qwen3.5、Qwen3.6、GLM-4.7-Flash、Qwen3-30B-A3B，是类似的。
 
 ```bash
 cd /root/slime
@@ -411,6 +411,12 @@ hf download Qwen/Qwen3-4B-FP8 --local-dir /root/Qwen3-4B-FP8
 ```
 
 即可触发 fp8 推理。目前我们会将 bf16 权重直接 cast 为 fp8，后续会逐渐添加对精度影响更小的量化方案。
+
+对于 long-context rollout，也可以开启 SGLang FP8 KV cache 来提升有效 KV cache 容量：
+
+```bash
+--sglang-kv-cache-dtype fp8_e4m3
+```
 
 ⚠️  训练的 megatron checkpoint 还需要是最开始用 bf16 的 huggingface 转换的。
 
